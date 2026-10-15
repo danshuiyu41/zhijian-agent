@@ -87,12 +87,104 @@ def get_agent():
 
 
 # ----------------------------------------------------------------------
+# 访问口令输入页（公网部署时使用）
+#
+# 设计考虑：直接把 401 甩给评委体验很差。这里给一个极简的输入页，
+# 输入口令后自动带上 ?token= 跳回首页，之后靠 Cookie 免参数浏览。
+# 页面不暴露任何系统信息，也不提示口令内容。
+# ----------------------------------------------------------------------
+def _token_page(wrong: bool = False) -> str:
+    tip = ("<p class=\"err\">口令不正确，请重新输入。</p>" if wrong else "")
+    return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>智检 Agent · 访问验证</title><style>
+*{{box-sizing:border-box}}
+body{{margin:0;min-height:100vh;display:grid;place-items:center;
+  background:#05080f;color:#eaf1ff;
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background-image:radial-gradient(900px 520px at 12% -6%,rgba(34,211,238,.13),transparent 62%),
+                   radial-gradient(800px 480px at 100% 6%,rgba(139,92,246,.13),transparent 60%)}}
+.box{{width:min(92vw,380px);padding:32px 28px;border-radius:18px;
+  background:rgba(26,38,66,.82);border:1px solid rgba(120,170,255,.18);
+  box-shadow:0 10px 30px rgba(0,0,0,.4)}}
+h1{{font-size:18px;margin:0 0 6px;font-weight:700}}
+p{{margin:0 0 18px;font-size:13px;color:#9fb0d0;line-height:1.6}}
+.err{{color:#fca5a5;margin:0 0 14px}}
+input{{width:100%;padding:11px 13px;font:inherit;font-size:14px;color:#eaf1ff;
+  background:rgba(36,50,82,.7);border:1px solid rgba(120,170,255,.18);border-radius:10px}}
+input:focus{{outline:none;border-color:#22d3ee;box-shadow:0 0 0 3px rgba(34,211,238,.16)}}
+button{{width:100%;margin-top:14px;padding:11px;font:inherit;font-size:14px;font-weight:700;
+  color:#04121f;background:linear-gradient(135deg,#22d3ee,#3b82f6 55%,#8b5cf6);
+  border:0;border-radius:980px;cursor:pointer}}
+button:hover{{filter:brightness(1.08)}}
+</style></head><body><div class="box">
+<h1>智检 Agent</h1>
+<p>该演示系统已开启访问保护，请输入访问口令后继续。</p>
+{tip}
+<form method="get" action="/">
+  <input name="token" type="password" placeholder="访问口令" autofocus autocomplete="off"/>
+  <button type="submit">进入系统</button>
+</form>
+</div></body></html>"""
+
+
+# ----------------------------------------------------------------------
 # FastAPI 应用
 # ----------------------------------------------------------------------
 def create_app():
-    app = FastAPI(title=CFG["server"]["title"], version=CFG["project"]["version"],
-                  description="面向中小制造企业的工业表面缺陷智能检测与处置智能体系统")
+    import os
+
+    scfg = CFG.get("server", {})
+    # 公网部署时的访问口令：环境变量优先于配置（便于部署脚本注入，避免把口令提交进仓库）
+    access_token = (os.environ.get("ZHJ_TOKEN") or scfg.get("access_token") or "").strip()
+    expose_docs = bool(scfg.get("expose_docs", True))
+    allow_seed = bool(scfg.get("allow_seed", True))
+
+    app = FastAPI(title=scfg["title"], version=CFG["project"]["version"],
+                  description="面向中小制造企业的工业表面缺陷智能检测与处置智能体系统",
+                  docs_url="/docs" if expose_docs else None,
+                  redoc_url="/redoc" if expose_docs else None,
+                  openapi_url="/openapi.json" if expose_docs else None)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+    if access_token:
+        LOG.info("已启用访问口令保护（部署到公网时建议开启）")
+    else:
+        LOG.info("未设置访问口令 —— 仅适合本机使用；公网部署请设置 server.access_token 或环境变量 ZHJ_TOKEN")
+
+    # ------------------------------------------------------------------
+    # 访问口令校验中间件
+    #
+    # 为什么需要：部署到公网后，若不加保护，任何人扫到 IP 就能上传图片、
+    # 翻看全部检测记录、填充演示数据。校验方式取最简单的两种：
+    #   · URL 参数 ?token=xxx      —— 便于直接分享链接给评委
+    #   · 请求头 X-Auth-Token: xxx —— 便于前端 fetch 携带
+    # 校验通过后写入 Cookie，后续请求自动免参数（方便评委连续浏览多个页面）。
+    # ------------------------------------------------------------------
+    @app.middleware("http")
+    async def auth_guard(request, call_next):
+        if not access_token:
+            return await call_next(request)
+        path = request.url.path
+        # 放行：健康检查、静态资源、带正确口令的请求、已通过校验的 Cookie
+        if path.startswith("/api/health") or path.startswith("/static"):
+            return await call_next(request)
+        supplied = (request.query_params.get("token")
+                    or request.headers.get("X-Auth-Token")
+                    or request.cookies.get("zhj_token") or "")
+        if supplied == access_token:
+            resp = await call_next(request)
+            if request.query_params.get("token"):
+                resp.set_cookie("zhj_token", access_token, max_age=86400, httponly=True,
+                                samesite="lax")
+            return resp
+        # 未通过：返回一个简单的口令输入页（而非生硬的 401，便于评委操作）
+        if "text/html" in (request.headers.get("accept") or ""):
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(_token_page(wrong=bool(supplied)), status_code=401)
+        return JSONResponse(status_code=401,
+                            content={"ok": False, "data": None,
+                                     "error": "需要访问口令。请在网址后加 ?token=口令，或设置请求头 X-Auth-Token"})
 
     def ok(data: Any = None, **extra):
         return {"ok": True, "data": data, "error": None, **extra}
@@ -436,6 +528,10 @@ def create_app():
 
     @app.post("/api/demo/seed")
     def demo_seed(n: int = 120):
+        # 公网部署时默认关闭：防止陌生人往看板里灌演示数据
+        if not allow_seed:
+            return fail("公网部署模式下已关闭演示数据填充接口"
+                        "（如需开启，请在 config.yaml 设置 server.allow_seed: true）", 403)
         return ok({"inserted": get_db().seed_demo_data(n)})
 
     # ------------------------------------------------------------------
