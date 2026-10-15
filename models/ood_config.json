@@ -1,0 +1,16 @@
+{
+ "threshold": 0.6438295692205429,
+ "k": 5,
+ "class_names": [
+  "crazing",
+  "inclusion",
+  "patches",
+  "pitted_surface",
+  "rolled_in_scale",
+  "scratches",
+  "clean"
+ ],
+ "bank_size": 420,
+ "method": "k-NN distance on penultimate features (L2-normalized)",
+ "generated_at": "2026-10-14 18:30:01"
+}

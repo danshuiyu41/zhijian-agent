@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="color-scheme" content="light dark"/>
+<title>智检 Agent · 工业表面缺陷智能检测与处置</title>
+<!-- 带版本号引用样式：开发期反复改 CSS 时，浏览器会缓存旧文件导致"改了没反应"。
+     加 ?v= 参数可强制刷新，无需让使用者手动清缓存。 -->
+<link rel="stylesheet" href="/static/design-system.css?v=20261014i"/>
+<script>
+/* 主题强制：URL 带 ?theme=dark / ?theme=light 时固定该主题。
+   用途：① 无头浏览器截图时结果可控（截图工具默认按系统配色渲染，实测出的是浅色）；
+        ② 演示前可先固定配色，避免系统设置或投影影响观感。
+   实现：写入 <html data-theme>，由 CSS 的属性选择器覆盖 prefers-color-scheme。 */
+(function () {
+  var m = /[?&]theme=(dark|light)/.exec(location.search);
+  var t = m ? m[1] : null;
+  try { if (!t) t = localStorage.getItem('dsh-theme'); } catch (e) { }
+  if (t === 'dark' || t === 'light') {
+    document.documentElement.setAttribute('data-theme', t);
+  }
+})();
+</script>
+</head>
+<body>
+
+<!-- ============================ 导航栏 ============================ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand"><span class="mark">智</span>智检 Agent</div>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true"  data-tab="detect">检测</button>
+      <button role="tab" aria-selected="false" data-tab="dashboard">看板</button>
+      <button role="tab" aria-selected="false" data-tab="orders">工单</button>
+      <button role="tab" aria-selected="false" data-tab="ask">诊断</button>
+    </div>
+    <span class="status" id="status"><i class="dot"></i><span id="statusText">连接中</span></span>
+  </div>
+</nav>
+
+<main>
+  <!-- ============================ ① 检测 ============================ -->
+  <section id="tab-detect">
+    <header class="page-head">
+      <h1>表面缺陷检测</h1>
+      <p>上传或拍摄产品表面图像，系统检出缺陷并定位、评定 A~E 严重度等级、给出根因分析与工艺处置建议，并自动生成维修工单。</p>
+    </header>
+
+    <div class="grid cols-2">
+      <!-- 输入 -->
+      <div class="grid tight">
+        <div class="card">
+          <h3>图像输入</h3>
+          <p class="hint">拖入或点击选择，也可用手机浏览器直接拍照</p>
+          <div class="drop" id="drop">
+            <div class="icon">＋</div>
+            <div class="title">拖入图像，或点击选择</div>
+            <div class="sub">支持 JPG · PNG · BMP，单张不超过 20 MB</div>
+            <input type="file" id="file" accept="image/*" capture="environment" class="hidden"/>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div class="field" style="flex:1 1 200px">
+              <label for="batch">批次</label>
+              <input type="text" id="batch" placeholder="选填，用于报告追溯"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>演示样本</h3>
+          <p class="hint">点击任意样本立即检测，无需准备图片</p>
+          <div class="samples" id="samples"></div>
+        </div>
+
+        <div class="card">
+          <h3>最近检测</h3>
+          <p class="hint">点击查看该次检测的完整报告</p>
+          <div id="recent"><div class="empty">暂无记录</div></div>
+        </div>
+      </div>
+
+      <!-- 结果 -->
+      <div class="card" id="resultCard">
+        <h3>检测结果</h3>
+        <p class="hint" id="resultHint">等待输入图像</p>
+
+        <div id="resultIdle" class="empty">尚未检测。上传图像或点击左侧样本后，结果将显示在这里。</div>
+        <div id="resultBusy" class="empty hidden"><span class="spinner"></span> 正在检测…</div>
+        <div id="resultError" class="empty hidden" style="color:var(--lv-E)"></div>
+
+        <div id="resultBody" class="hidden">
+          <div class="verdict">
+            <div class="big" id="gradeBig">A</div>
+            <div class="meta">
+              <div class="t" id="verdictText">—</div>
+              <div class="s" id="verdictSub">—</div>
+            </div>
+          </div>
+
+          <div class="mini" id="mini" style="margin-top:0;border-top:0;padding-top:0"></div>
+          <div class="advice" id="advice" style="margin-top:20px"></div>
+          <div id="detWrap" style="margin-top:22px"></div>
+
+          <div class="mini" id="modelInfo" style="margin-top:14px"></div>
+
+          <h3 style="margin-top:24px">检测图像对照</h3>
+          <p class="hint">热力图为 Grad-CAM 类激活图：红黄区域是模型判定时重点关注的部位，用于人工核对模型是否真的在看缺陷本身</p>
+          <div class="compare">
+            <figure><img id="shotOrigin" alt="原始图像"/><figcaption><b>原始图像</b><br/>输入</figcaption></figure>
+            <figure><img id="shotBox" alt="缺陷标注"/><figcaption><b>缺陷标注</b><br/>检出位置与等级</figcaption></figure>
+            <figure><img id="shotHeat" alt="Grad-CAM 热力图"/><figcaption><b>Grad-CAM 热力图</b><br/>模型关注区域</figcaption></figure>
+          </div>
+
+          <div class="row no-print" style="margin-top:20px">
+            <a class="btn ghost" id="reportLink" target="_blank" style="display:none">查看完整报告</a>
+            <button class="btn plain hidden" id="againBtn">再检测一张</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ② 看板 ============================ -->
+  <section id="tab-dashboard" class="hidden">
+    <header class="page-head">
+      <h1>质量看板</h1>
+      <p>检测总量、合格率、严重度等级分布与缺陷类型构成，并据此给出工艺排查方向。</p>
+    </header>
+
+    <div class="row" style="margin-bottom:22px">
+      <div class="seg" id="rangeSeg">
+        <button data-days="1" aria-pressed="false">今日</button>
+        <button data-days="7" aria-pressed="false">近 7 天</button>
+        <button data-days="30" aria-pressed="true">近 30 天</button>
+        <button data-days="365" aria-pressed="false">全部</button>
+      </div>
+      <button class="btn ghost no-print" id="seedBtn">填充演示数据</button>
+    </div>
+
+    <div class="section"><div class="stats" id="stats"></div></div>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>严重度等级分布</h3>
+        <p class="hint">A 放行 · B 放行并记录 · C 转人工复检 · D 判废停机 · E 紧急停机</p>
+        <div class="dist" id="gradeDist"></div>
+      </div>
+      <div class="card">
+        <h3>缺陷类型构成</h3>
+        <p class="hint">缺陷构成的偏移往往是工艺异常的早期信号</p>
+        <div class="dist" id="defectDist"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>逐小时检测量</h3>
+      <p class="hint">浅色为检测总量，深色部分为合格量</p>
+      <canvas id="chart" height="200"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>过程洞察</h3>
+      <p class="hint">根据当前缺陷构成自动生成的排查方向</p>
+      <div id="insights"><div class="empty">暂无数据</div></div>
+    </div>
+  </section>
+
+  <!-- ============================ ③ 工单 ============================ -->
+  <section id="tab-orders" class="hidden">
+    <header class="page-head">
+      <h1>维修与工艺工单</h1>
+      <p>每次检出缺陷时由智能体自动生成，含责任部门、处置动作与检查项清单，形成"感知—决策—执行"的闭环。</p>
+    </header>
+
+    <div class="row" style="margin-bottom:22px">
+      <div class="seg" id="woSeg">
+        <button data-st="" aria-pressed="true">全部</button>
+        <button data-st="待处理" aria-pressed="false">待处理</button>
+        <button data-st="已完成" aria-pressed="false">已完成</button>
+      </div>
+      <span class="hint" id="woStat" style="margin:0"></span>
+    </div>
+
+    <div id="orderList"><div class="empty">暂无工单。完成一次带缺陷的检测后会自动生成。</div></div>
+  </section>
+
+  <!-- ============================ ④ 诊断 ============================ -->
+  <section id="tab-ask" class="hidden">
+    <header class="page-head">
+      <h1>缺陷诊断</h1>
+      <p>从缺陷现象反查产线部位与设备参数：先查哪里、查哪台设备、判据是多少。本页不讲解工艺原理——那是工艺规程的职责，这里只解决现场最花时间的「往哪儿找」。</p>
+    </header>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>描述现象</h3>
+        <p class="hint">支持 Ctrl / ⌘ + Enter 快捷提交</p>
+        <textarea id="q" placeholder="例如：龟裂比例连续三个班次从 0.3% 升到 4%，先查什么？"></textarea>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="askBtn">诊断</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn plain" data-q="龟裂比例连续三个班次从0.3%升到4.1%，按什么顺序排查？">龟裂比例连续上升</button>
+          <button class="btn plain" data-q="压入氧化铁皮呈条带分布，对应哪一组除鳞喷嘴？">条带状氧化铁皮定位</button>
+          <button class="btn plain" data-q="划痕间距与某辊周长一致，怎么确认是哪个辊？">划痕定位到具体辊</button>
+          <button class="btn plain" data-q="夹杂缺陷集中在同一炉次，该查哪里？">夹杂锁定炉次</button>
+        </div>
+        <div class="notice" style="margin-top:16px">
+          <span>ⓘ</span>
+          <span>本模块<b>只答「往哪儿找」</b>。问「龟裂的成因是什么」这类基础原理会被直接拒答——
+            产线工程师本就知道的事，讲解它没有意义。</span>
+        </div>
+      </div>
+      <div>
+        <div id="answer"><div class="card"><div class="empty">描述现象后，排查方向与知识依据将显示在这里。</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>知识库条目检索</h3>
+      <p class="hint">直接查看诊断条目原文，核对助手回答的依据</p>
+      <div class="row">
+        <input type="text" id="kbq" placeholder="输入关键词，如：除鳞 喷嘴 / 磨削周期 / 炉次"/>
+        <button class="btn ghost" id="kbBtn">检索</button>
+      </div>
+      <div id="kbList" style="margin-top:16px"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="rule">
+    智检 Agent · 面向中小制造企业的工业表面缺陷智能检测与处置智能体系统<br/>
+    2026 年华北五省（市、自治区）及港澳台大学生计算机应用大赛 · 智能技术应用类
+  </div>
+</footer>
+
+<script>
+/* ==========================================================================
+   前端逻辑（4 个页签）
+   无外部依赖，离线可用。渲染统一走小工具函数，避免模板字符串散落。
+   ========================================================================== */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const lvTag = (lv) => `<span class="level" data-lv="${esc(lv || 'none')}">${esc(lv || '-')}</span>`;
+
+let dashDays = 30;
+let woStatus = '';
+
+/* ------------------------------ 网络 ------------------------------ */
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const ct = r.headers.get('Content-Type') || '';
+  const body = ct.includes('json') ? await r.json() : { ok: r.ok, data: await r.text() };
+  if (!r.ok || body.ok === false) throw new Error(body.error || ('HTTP ' + r.status));
+  return body.data;
+}
+
+/* ------------------------------ 页签 ------------------------------ */
+const PAGES = ['detect', 'dashboard', 'orders', 'ask'];
+$$('.tabs button').forEach((b) => b.onclick = () => {
+  $$('.tabs button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  PAGES.forEach((k) => $('#tab-' + k).classList.toggle('hidden', k !== b.dataset.tab));
+  const t = b.dataset.tab;
+  if (t === 'dashboard') loadDashboard();
+  if (t === 'orders') loadOrders();
+});
+
+/* ------------------------------ 状态 ------------------------------ */
+async function refreshStatus() {
+  const el = $('#status');
+  try {
+    const d = await api('/api/health');
+    const m = d.model || {};
+    el.className = 'status ' + (m.loaded ? 'ok' : 'err');
+    $('#statusText').textContent = m.loaded ? '就绪' : '模型未加载';
+    el.title = m.loaded
+      ? `主干 ${m.backbone} ｜ 参数量 ${m.params_m}M ｜ 知识库 ${(d.knowledge || {}).docs || 0} 条`
+      : (m.error || '');
+  } catch (e) {
+    el.className = 'status err';
+    $('#statusText').textContent = '服务未连接';
+  }
+}
+
+/* ============================== ① 检测 ============================== */
+const drop = $('#drop'), fileInput = $('#file');
+drop.onclick = () => fileInput.click();
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) inspect(e.dataTransfer.files[0]); });
+fileInput.onchange = () => { if (fileInput.files[0]) inspect(fileInput.files[0]); };
+$('#againBtn').onclick = () => {
+  $('#resultBody').classList.add('hidden');
+  $('#resultIdle').classList.remove('hidden');
+  $('#resultHint').textContent = '等待输入图像';
+  fileInput.value = '';
+};
+
+function showState(state, msg) {
+  $('#resultIdle').classList.toggle('hidden', state !== 'idle');
+  $('#resultBusy').classList.toggle('hidden', state !== 'busy');
+  $('#resultError').classList.toggle('hidden', state !== 'error');
+  $('#resultBody').classList.toggle('hidden', state !== 'done');
+  if (state === 'error') $('#resultError').textContent = msg;
+}
+
+async function inspect(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  /* 关键性能取舍：Grad-CAM 热力图实测约 1905 ms，占整条链路 90%，
+     而判定本身只要约 200 ms。所以这里不请求热力图——先快速出结果，
+     拿到 inspection_id 后再异步调 /api/heatmap 补上第三张图。 */
+  fd.append('heatmap', 'false');
+  fd.append('agent', 'true');
+  fd.append('batch_no', $('#batch').value.trim());
+  fd.append('persist', 'true');
+  showState('busy');
+  $('#resultHint').textContent = '正在分析图像…';
+  try {
+    const d = await api('/api/inspect/agent', { method: 'POST', body: fd });
+    render(d.result, d.advice, d.viz);
+    loadRecent();
+    loadHeatmapAsync(d.result && d.result.inspection_id);
+  } catch (e) {
+    showState('error', '检测失败：' + e.message);
+    $('#resultHint').textContent = '发生错误';
+  }
+}
+
+/* 异步补热力图：不阻塞判定结果的展示 */
+async function loadHeatmapAsync(inspectionId) {
+  if (!inspectionId) return;
+  const el = $('#shotHeat');
+  if (!el || !el.parentElement) return;
+  const cap = el.parentElement.querySelector('figcaption');
+  el.parentElement.style.display = '';
+  el.removeAttribute('src');
+  if (cap) cap.innerHTML = '<b>Grad-CAM 热力图</b><br/>生成中…';
+  try {
+    const d = await api('/api/heatmap/' + encodeURIComponent(inspectionId));
+    if (d && d.heatmap_png) {
+      el.src = d.heatmap_png;
+      if (cap) cap.innerHTML = '<b>Grad-CAM 热力图</b><br/>模型关注区域';
+    }
+  } catch (e) {
+    if (cap) cap.innerHTML = '<b>Grad-CAM 热力图</b><br/>生成失败';
+  }
+}
+
+async function inspectSample(rel) {
+  showState('busy');
+  $('#resultHint').textContent = '正在载入样本…';
+  try {
+    const resp = await fetch('/api/samples/raw?rel=' + encodeURIComponent(rel));
+    if (!resp.ok) throw new Error('样本读取失败');
+    const blob = await resp.blob();
+    const name = rel.split(/[\\/]/).pop();
+    await inspect(new File([blob], name, { type: blob.type || 'image/png' }));
+  } catch (e) {
+    showState('error', '检测失败：' + e.message);
+  }
+}
+
+function render(r, advice, viz) {
+  showState('done');
+  $('#resultHint').textContent = '检测完成';
+
+  $('#gradeBig').textContent = r.grade;
+  $('#gradeBig').style.color = r.grade_color || 'var(--c1)';
+  $('#verdictText').textContent = `${r.verdict} · ${r.grade_zh}`;
+  const top = r.detections[0];
+  $('#verdictSub').textContent = top
+    ? `主要缺陷 ${top.class_zh} · 建议动作：${top.action}`
+    : '未检出表面缺陷，判定合格';
+
+  /* 关键数字行：把最有信息量的几个数单独提出来 */
+  $('#mini').innerHTML = `
+    <div><b style="color:${r.grade_color || 'var(--c1)'}">${r.max_severity}<span class="small muted">/100</span></b>最高严重度</div>
+    <div><b>${r.detections.length}</b>检出缺陷</div>
+    <div><b style="color:var(--c1)">${top ? (top.confidence * 100).toFixed(1) + '%' : '—'}</b>主要缺陷置信度</div>
+    <div><b style="color:color-mix(in srgb, var(--lv-B) 78%, var(--text))">${Math.round(r.elapsed_ms)}<span class="small muted">ms</span></b>检测耗时</div>
+    <div><b style="color:color-mix(in srgb, #8c64ff 78%, var(--text))">${r.windows}</b>滑窗数</div>`;
+
+  /* 智能体建议 */
+  const a = advice || {};
+  const blk = (k, v) => v
+    ? `<div class="blk"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>` : '';
+  const cites = (a.citations || []).map((c) => `<span class="chip">${esc(c.id)}</span>`).join('');
+  const wo = a.work_order || {};
+  $('#advice').innerHTML =
+    (a.need_manual_review
+      ? `<div class="notice"><span>⚠</span><span>按内控标准，本次结果须转人工复检确认。</span></div>` : '') +
+    blk('根因分析', a.root_cause) +
+    blk('立即处置', a.immediate_action) +
+    blk('工艺纠正', a.process_action) +
+    blk('批次追溯', a.batch_trace) +
+    (wo.work_order_id
+      ? `<div class="blk"><div class="k">已生成工单</div><div class="v">
+           <span class="tag on">${esc(wo.work_order_id)}</span>
+           <span class="tag">${esc(wo.department)}</span>
+           <span class="tag${wo.priority === '紧急' ? ' bad' : ''}">${esc(wo.priority)}</span>
+           <div class="muted small" style="margin-top:6px">${esc(wo.action)}</div></div></div>` : '') +
+    (cites ? `<div class="blk"><div class="k">标准依据</div><div class="chips">${cites}</div></div>` : '') +
+    `<div class="blk"><div class="k">推理后端</div><div class="v small muted">
+       ${esc(a.backend)} · 置信度 ${esc(a.confidence)} · 耗时 ${Math.round(a.elapsed_ms || 0)} ms
+       ${a.degraded_reason ? '· ' + esc(a.degraded_reason) : ''}</div></div>`;
+
+  /* 缺陷明细 */
+  $('#detWrap').innerHTML = r.detections.length
+    ? `<div class="table-wrap"><table><thead><tr><th>缺陷</th><th>置信度</th><th>严重度</th><th>等级</th><th>建议动作</th></tr></thead><tbody>` +
+      r.detections.map((d) => `<tr>
+        <td>${esc(d.class_zh)}<div class="muted small">${esc(d.class_code)}</div></td>
+        <td class="num">${(d.confidence * 100).toFixed(1)}%</td>
+        <td class="num">${d.severity_score}</td>
+        <td>${lvTag(d.severity_level)}</td>
+        <td class="small">${esc(d.action)}</td></tr>`).join('') + '</tbody></table></div>'
+    : '<div class="empty">未检出表面缺陷</div>';
+
+  /* 三联图：原图 / 标注 / 热力图 */
+  const setImg = (id, url) => {
+    const el = $(id);
+    if (url) { el.src = url; el.parentElement.style.display = ''; }
+    else { el.removeAttribute('src'); el.parentElement.style.display = 'none'; }
+  };
+  setImg('#shotOrigin', r.image_data_url);
+  setImg('#shotBox', r.annotated_data_url);
+  /* 热力图由 loadHeatmapAsync 异步补上，这里只做占位，避免误隐藏该图 */
+  const heatEl = $('#shotHeat');
+  if (heatEl && heatEl.parentElement) {
+    heatEl.parentElement.style.display = '';
+    heatEl.removeAttribute('src');
+    const hcap = heatEl.parentElement.querySelector('figcaption');
+    if (hcap) hcap.innerHTML = '<b>Grad-CAM 热力图</b><br/>等待生成…';
+  }
+
+  const link = $('#reportLink');
+  if (r.inspection_id) {
+    link.style.display = 'inline-block';
+    link.href = `/api/report/${encodeURIComponent(r.inspection_id)}?fmt=html`;
+    $('#againBtn').classList.remove('hidden');
+  }
+}
+
+async function loadSamples() {
+  try {
+    const list = await api('/api/samples');
+    $('#samples').innerHTML = list.slice(0, 28).map((s) => `
+      <button data-rel="${esc(s.rel)}" title="${esc(s.class_zh)}">
+        <img src="/api/samples/raw?rel=${encodeURIComponent(s.rel)}" alt="${esc(s.class_zh)}"/>
+        <span>${esc(s.class_zh)}</span>
+      </button>`).join('');
+    $$('#samples button').forEach((b) => b.onclick = () => inspectSample(b.dataset.rel));
+  } catch (e) {
+    $('#samples').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+async function loadRecent() {
+  try {
+    const rows = await api('/api/inspections?limit=6');
+    $('#recent').innerHTML = rows.length
+      ? `<div class="table-wrap"><table><tbody>${rows.map((r) => `<tr>
+          <td><a href="/api/report/${encodeURIComponent(r.inspection_id)}?fmt=html" target="_blank">
+            ${esc(r.top_defect_zh || '无缺陷')}</a></td>
+          <td>${lvTag(r.grade)}</td>
+          <td class="muted small" style="text-align:right;white-space:nowrap">${esc((r.created_at || '').slice(5, 16))}</td>
+        </tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">暂无记录</div>';
+  } catch (e) {
+    $('#recent').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+/* ============================== ② 看板 ============================== */
+$$('#rangeSeg button').forEach((b) => b.onclick = () => {
+  dashDays = Number(b.dataset.days);
+  $$('#rangeSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  loadDashboard();
+});
+$('#seedBtn').onclick = async () => {
+  try { const d = await api('/api/demo/seed', { method: 'POST' }); alert('已填充 ' + d.inserted + ' 条演示数据'); loadDashboard(); }
+  catch (e) { alert(e.message); }
+};
+
+async function loadDashboard() {
+  try {
+    const d = await api('/api/dashboard?days=' + dashDays);
+    /* 每块 KPI 指定色调，避免六块一模一样的灰方块 */
+    $('#stats').innerHTML = [
+      ['检测总量', d.total, '件', 'blue'],
+      ['合格率', (d.pass_rate * 100).toFixed(1), '%', 'green'],
+      ['不合格', d.unqualified, '件', 'red'],
+      ['平均节拍', Math.round(d.avg_elapsed_ms), 'ms', 'cyan'],
+      ['待处理工单', d.work_orders_open, '单', 'orange'],
+      ['平均缺陷数', d.avg_defect_count, '处/件', 'purple'],
+    ].map(([l, v, u, tone]) => `<div class="stat" data-tone="${tone}"><div class="v">${v}<small>${u}</small></div><div class="l">${l}</div></div>`).join('');
+
+    const gAll = d.by_grade.reduce((s, x) => s + x.c, 0) || 1;
+    $('#gradeDist').innerHTML = d.by_grade.length
+      ? d.by_grade.map((x) => `<div class="item">
+          <div class="top"><span>${esc(x.grade)} · ${esc(x.grade_zh || '')}</span>
+            <span class="r">${x.c} 次 · ${(x.c / gAll * 100).toFixed(1)}%</span></div>
+          <div class="track"><i data-lv="${esc(x.grade)}" style="width:${(x.c / gAll * 100).toFixed(1)}%"></i></div>
+        </div>`).join('') : '<div class="empty">暂无数据</div>';
+
+    const dAll = d.by_defect.reduce((s, x) => s + x.c, 0) || 1;
+    /* 缺陷类型条形按序号轮换色相：一眼能数清有几种缺陷、各占多少 */
+    const TONES = ['var(--c1)', 'var(--lv-A)', 'var(--lv-B)', 'var(--lv-C)', 'var(--lv-D)', 'var(--c3)'];
+    $('#defectDist').innerHTML = d.by_defect.length
+      ? d.by_defect.map((x, i) => `<div class="item">
+          <div class="top"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;
+            background:${TONES[i % TONES.length]};margin-right:7px"></i>${esc(x.zh || x.code)}</span>
+            <span class="r">${x.c} 次 · ${(x.c / dAll * 100).toFixed(1)}%</span></div>
+          <div class="track"><i style="width:${(x.c / dAll * 100).toFixed(1)}%;background:${TONES[i % TONES.length]}"></i></div>
+        </div>`).join('') : '<div class="empty">暂无数据</div>';
+
+    drawChart(d.by_hour || []);
+    renderInsights(d);
+  } catch (e) {
+    $('#stats').innerHTML = `<div class="stat"><div class="v" style="color:var(--lv-E)">!</div><div class="l">${esc(e.message)}</div></div>`;
+  }
+}
+
+/* 过程洞察：把"缺陷构成"翻译成"工艺排查方向"，这是看板真正的价值 */
+const PROCESS_HINT = {
+  crazing: '加热与冷却制度（加热温度曲线、终轧温度、层流冷却水量）',
+  inclusion: '炼钢与连铸（精炼吹氩、中间包耐材、结晶器液面）',
+  patches: '酸洗与除鳞（酸液浓度温度、除鳞水压力、防锈措施）',
+  pitted_surface: '精轧工作辊与冷却水（辊面粗糙度、磨削周期、水质）',
+  rolled_in_scale: '除鳞集管与喷嘴（水压、喷嘴角度与堵塞）',
+  scratches: '轧线接触部件（导板毛刺、夹送辊、跑偏纠偏、吊运堆垛）',
+};
+
+function renderInsights(d) {
+  const rows = d.by_defect || [];
+  const total = rows.reduce((s, x) => s + x.c, 0);
+  if (!total) { $('#insights').innerHTML = '<div class="empty">暂无数据</div>'; return; }
+
+  const top = rows[0];
+  const share = (top.c / total * 100).toFixed(0);
+  const out = [];
+  out.push(`<div class="insight"><span class="n">1</span><div>
+    当前占比最高的缺陷是 <b>${esc(top.zh || top.code)}</b>（${top.c} 次，占 ${share}%）。
+    建议优先排查 <b>${esc(PROCESS_HINT[top.code] || '相关工艺环节')}</b>。</div></div>`);
+
+  // 高等级（不合格）占比提示
+  const bad = (d.by_grade || []).filter((g) => ['C', 'D', 'E'].includes(g.grade))
+    .reduce((s, g) => s + g.c, 0);
+  const badShare = total ? (bad / Math.max(d.total, 1) * 100).toFixed(1) : '0.0';
+  out.push(`<div class="insight"><span class="n">2</span><div>
+    需要人工复检及以上的判定共 <b>${bad}</b> 件，占检测总量 <b>${badShare}%</b>。
+    ${bad > 0 ? '建议核对人工复检记录，确认误报比例是否在可接受范围。'
+              : '当前无需人工复检的判定，可维持现有工艺参数。'}</div></div>`);
+
+  if (rows.length > 1) {
+    const second = rows[1];
+    out.push(`<div class="insight"><span class="n">3</span><div>
+      次高缺陷为 <b>${esc(second.zh || second.code)}</b>（${second.c} 次）。
+      若两类缺陷同时上升，往往指向同一工艺环节，建议联合排查而非分别处理。</div></div>`);
+  }
+  out.push(`<div class="insight"><span class="n">4</span><div>
+    当前平均检测节拍 <b>${Math.round(d.avg_elapsed_ms)} ms/件</b>，
+    平均每件检出 <b>${d.avg_defect_count}</b> 处缺陷，可用于估算产线质检节拍是否满足要求。</div></div>`);
+
+  $('#insights').innerHTML = out.join('');
+}
+
+function drawChart(rows) {
+  const c = $('#chart'), dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth || 800, H = 200;
+  c.width = W * dpr; c.height = H * dpr;
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement);
+  /* 注意：这里的变量名必须与 design-system.css 保持一致。
+     v3 主题重命名过变量（--accent→--c1、--separator→--line），
+     旧名字 getPropertyValue 会返回空串，只落到兜底色 → 图表不跟随主题。 */
+  const grid = css.getPropertyValue('--line').trim() || 'rgba(120,160,230,.14)';
+  const muted = css.getPropertyValue('--text-3').trim() || '#888';
+  const accent = css.getPropertyValue('--c1').trim() || '#22d3ee';
+  const panelHi = css.getPropertyValue('--panel-hi').trim() || 'rgba(48,68,108,.6)';
+
+  if (!rows.length) {
+    ctx.fillStyle = muted; ctx.font = '13px system-ui'; ctx.fillText('暂无数据', 4, 26);
+    return;
+  }
+  const pad = { l: 34, r: 8, t: 12, b: 26 };
+  const maxC = Math.max(...rows.map((r) => r.c), 1);
+  const bw = (W - pad.l - pad.r) / rows.length;
+
+  ctx.strokeStyle = grid; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const y = Math.round(pad.t + (H - pad.t - pad.b) * i / 3) + .5;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  rows.forEach((r, i) => {
+    const x = pad.l + i * bw + bw * .22, w = Math.max(2, bw * .56);
+    const h = (H - pad.t - pad.b) * (r.c / maxC);
+    const base = H - pad.b;
+    // 柱子分两段：底为总检测量（暗面板色），上为合格量（品牌青色，带发光）
+    ctx.fillStyle = panelHi; ctx.fillRect(x, base - h, w, h);
+    const hr = (r.ok / Math.max(r.c, 1)) * h;
+    ctx.save();
+    ctx.shadowColor = accent; ctx.shadowBlur = 8;
+    ctx.fillStyle = accent; ctx.fillRect(x, base - hr, w, hr);
+    ctx.restore();
+    ctx.fillStyle = muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(String(r.h || '').padStart(2, '0'), x + w / 2, H - pad.b + 15);
+    ctx.textAlign = 'left';
+  });
+  ctx.fillStyle = muted; ctx.font = '10px system-ui';
+  ctx.fillText(String(maxC), 6, pad.t + 8);
+  ctx.fillText('0', 20, H - pad.b);
+}
+
+/* ============================== ③ 工单 ============================== */
+$$('#woSeg button').forEach((b) => b.onclick = () => {
+  woStatus = b.dataset.st;
+  $$('#woSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  loadOrders();
+});
+
+async function loadOrders() {
+  try {
+    const rows = await api('/api/work_orders?limit=60' + (woStatus ? '&status=' + encodeURIComponent(woStatus) : ''));
+    const open = rows.filter((o) => o.status !== '已完成').length;
+    $('#woStat').textContent = `共 ${rows.length} 条，其中待处理 ${open} 条`;
+    $('#orderList').innerHTML = rows.length ? rows.map((o) => `
+      <div class="wo">
+        <div class="hd">
+          <span class="id">${esc(o.work_order_id)}</span>
+          ${lvTag(o.severity_level)}
+          <span class="tag${o.priority === '紧急' ? ' bad' : (o.priority === '高' ? ' warn' : '')}">${esc(o.priority)}</span>
+          <span class="tag">${esc(o.department)}</span>
+          ${o.stop_line ? '<span class="tag bad">停机</span>' : ''}
+          ${o.quarantine_batch ? '<span class="tag bad">隔离批次</span>' : ''}
+          <span class="tag${o.status === '已完成' ? ' on' : ''}">${esc(o.status)}</span>
+          <span class="muted small" style="margin-left:auto">${esc(o.created_at)}</span>
+        </div>
+        <div class="body2"><b>${esc(o.defect_zh || '')}</b> · 严重度 ${o.severity_score}／100</div>
+        <div class="body2 muted" style="margin-top:4px">${esc(o.action)}</div>
+        ${(o.check_items || []).length ? `<ul class="checks">${o.check_items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+        ${o.status !== '已完成'
+          ? `<div class="row" style="margin-top:12px"><button class="btn ghost" data-wo="${esc(o.work_order_id)}">标记为已完成</button></div>` : ''}
+      </div>`).join('') : '<div class="empty">暂无工单。完成一次带缺陷的检测后会自动生成。</div>';
+
+    $$('[data-wo]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        await api('/api/work_orders/' + encodeURIComponent(b.dataset.wo) + '/status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: '已完成' }),
+        });
+        loadOrders();
+      } catch (e) { alert(e.message); b.disabled = false; }
+    });
+  } catch (e) {
+    $('#orderList').innerHTML = `<div class="empty" style="color:var(--lv-E)">${esc(e.message)}</div>`;
+  }
+}
+
+/* ============================== ④ 诊断 ============================== */
+$('#askBtn').onclick = async () => {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  $('#answer').innerHTML = '<div class="card"><span class="spinner"></span> 正在检索诊断条目…</div>';
+  try {
+    const d = await api('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }),
+    });
+    const a = d.answer || {};
+    const cites = (d.citations || []).map((c) => `<span class="chip">${esc(c.id)}</span>`).join('');
+    /* scope 字段区分「诊断回答」与「越界拒答」：拒答是刻意设计，界面上要说清楚 */
+    const oos = a.scope === 'out_of_scope';
+    const head = oos
+      ? `<div class="notice" style="margin-bottom:14px"><span>ⓘ</span>
+           <span><b>不在职责范围</b> · 本模块只做「缺陷现象 → 排查方向」的反查，不讲解基础原理。</span></div>`
+      : `<p class="hint">推理后端 ${esc(a.backend)} · 置信度 ${esc(a.confidence)} · 耗时 ${Math.round(a.elapsed_ms || 0)} ms</p>`;
+    $('#answer').innerHTML = `<div class="card">
+      <h3>${oos ? '未作答' : '排查方向'}</h3>
+      ${head}
+      <div style="white-space:pre-wrap;font-size:14.5px">${esc(a.answer)}</div>
+      ${cites ? `<div style="margin-top:18px"><div class="k small muted">引用条目</div><div class="chips">${cites}</div></div>` : ''}
+    </div>`;
+  } catch (e) {
+    $('#answer').innerHTML = `<div class="card"><div class="empty" style="color:var(--lv-E)">${esc(e.message)}</div></div>`;
+  }
+};
+$$('[data-q]').forEach((b) => b.onclick = () => { $('#q').value = b.dataset.q; $('#askBtn').click(); });
+$('#q').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') $('#askBtn').click();
+});
+
+$('#kbBtn').onclick = async () => {
+  const q = $('#kbq').value.trim();
+  if (!q) return;
+  $('#kbList').innerHTML = '<div class="empty"><span class="spinner"></span> 检索中…</div>';
+  try {
+    const hits = await api('/api/kb/search', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, top_k: 5 }),
+    });
+    $('#kbList').innerHTML = hits.length ? hits.map((h) => `
+      <div class="wo">
+        <div class="hd"><b>${esc(h.title)}</b><span class="chip">${esc(h.id)}</span>
+          <span class="muted small" style="margin-left:auto">相关度 ${h.score}</span></div>
+        <div class="small muted">${esc((h.text || '').slice(0, 240))}${(h.text || '').length > 240 ? '…' : ''}</div>
+      </div>`).join('') : '<div class="empty">未检索到相关内容</div>';
+  } catch (e) {
+    $('#kbList').innerHTML = `<div class="empty" style="color:var(--lv-E)">${esc(e.message)}</div>`;
+  }
+};
+
+/* 模型信息：原「关于」页删除后，把最常被问到的技术参数压缩成一行放在结果下方 */
+let modelInfoLoaded = false;
+async function loadModelInfo() {
+  if (modelInfoLoaded) return;
+  try {
+    const d = await api('/api/system');
+    const m = d.model || {}, ds = d.dataset || {};
+    $('#modelInfo').innerHTML = `
+      <div><b>${esc(m.backbone || '')}</b>检测主干</div>
+      <div><b>${esc(ds.image_size)}²</b>输入尺寸</div>
+      <div><b>${esc(m.window)}/${esc(m.stride)}</b>滑窗/步长</div>
+      <div><b>${esc(m.score_threshold)}</b>置信度阈值</div>
+      <div><b>${(ds.classes || []).length + 1}</b>缺陷类别</div>`;
+    modelInfoLoaded = true;
+  } catch (e) {
+    $('#modelInfo').innerHTML = '';
+  }
+}
+
+/* ------------------------------ 启动 ------------------------------ */
+refreshStatus();
+loadSamples();
+loadRecent();
+loadModelInfo();
+setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>

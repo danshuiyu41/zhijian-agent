@@ -1,0 +1,162 @@
+# =============================================================
+# 智检 Agent —— 面向中小制造企业的工业表面缺陷智能检测与处置智能体系统
+# 全局配置文件
+# =============================================================
+
+project:
+  name: "智检 Agent"
+  full_name: "面向中小制造企业的工业表面缺陷智能检测与处置智能体系统"
+  version: "1.0.0"
+  competition: "2026年华北五省（市、自治区）及港澳台大学生计算机应用大赛"
+  track: "赛道一：人工智能在垂直应用场景的创新设计与开发"
+  slogan: "一台笔记本就能落地的工厂质检智能体"
+
+# ----------------------------- 路径 -----------------------------
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_samples: "data/samples"
+  data_reports: "data/reports"
+  runs: "runs"
+  models: "models"
+  db: "data/app.db"
+  knowledge: "knowledge"
+
+# ----------------------------- 数据集 -----------------------------
+dataset:
+  name: "NEU-DET"
+  full_name: "NEU Surface Defect Database（东北大学热轧带钢表面缺陷数据库）"
+  source_url: "http://faculty.neu.edu.cn/songkechen/zh_CN/zdylm/263270/list/index.htm"
+  image_size: 224
+  val_ratio: 0.15
+  test_ratio: 0.15
+  seed: 42
+  # 类别定义：code 为英文标识，zh 为中文名，risk 为工艺风险等级(high/mid/low)
+  classes:
+    - { code: crazing,          zh: "龟裂",   risk: "high", en: "Crazing" }
+    - { code: inclusion,        zh: "夹杂",   risk: "high", en: "Inclusion" }
+    - { code: patches,          zh: "斑块",   risk: "mid",  en: "Patches" }
+    - { code: pitted_surface,   zh: "麻点",   risk: "mid",  en: "Pitted Surface" }
+    - { code: rolled_in_scale,  zh: "压入氧化铁皮", risk: "low", en: "Rolled-in Scale" }
+    - { code: scratches,        zh: "划痕",   risk: "mid",  en: "Scratches" }
+  # 合成缺陷兜底方案（当真实公开数据集不可获取时使用，保证系统可运行可演示）
+  synthetic:
+    enabled_fallback: true
+    per_class: 180
+    base_size: 256
+  # 难度增强：训练时随机把缺陷"缩小 / 降低对比度"，让模型见到难样本。
+  # 开启原因（实测）：若不开启，验证集准确率直接到 100%，置信度全部挤在 0.92~0.99，
+  # 既无区分度也修不好（温度缩放只会让分布更尖锐）。开启后置信度分布被真正拉开，
+  # 同时显著改善小尺度 + 低对比度条件下的漏检。
+  difficulty_augment:
+    enabled: true
+    min_zoom: 1.0        # RandomAffine 的 scale 下界（1.0 = 原尺寸）
+    max_zoom: 1.6        # 上界（1.6 ≈ 视野放大 1.6 倍，等效缺陷缩小到约 62%）
+    zoom_p: 0.35         # 施加缩放增强的概率
+    min_contrast: 0.55   # 对比度下界（1.0 为原对比度）
+    contrast_p: 0.35     # 施加低对比度增强的概率
+
+# ----------------------------- 模型 -----------------------------
+model:
+  backbone: "mobilenetv3_small_100"   # CPU 友好，约 2.5M 参数
+  pretrained: true
+  num_classes: 6
+  dropout: 0.2
+  head_hidden: 256
+  # 滑窗检测参数
+  window: 224
+  stride: 112
+  score_threshold: 0.55
+  nms_iou: 0.35
+  min_area_ratio: 0.00005
+  topk: 12
+  # 定位细化：对置信度最高的 N 个窗口用 Grad-CAM 收紧框。0=关闭（默认）。
+  # 开启会显著增加单图耗时（每窗口一次反向传播），演示时建议保持 0；
+  # 若需更精确的缺陷边界（例如测量缺陷长度），可设为 3~5。
+  refine_topn: 0
+
+# ----------------------------- 训练 -----------------------------
+train:
+  epochs: 16
+  batch_size: 32
+  lr: 0.0008
+  weight_decay: 0.0001
+  label_smoothing: 0.05
+  num_workers: 0
+  device: "cpu"        # 自动检测到 cuda 时可改为 cuda
+  amp: false
+  augment:
+    hflip: 0.5
+    vflip: 0.5
+    rotate90: 0.5
+    color_jitter: 0.2
+    random_erasing: 0.15
+  early_stop_patience: 8
+  cosine_schedule: true
+
+# ----------------------------- 严重度分级 -----------------------------
+severity:
+  # 分级公式（v2，替代 v1 的线性加权）：
+  #
+  #   severity = 100 · [ w_risk · R + (1 - w_risk) · ( w_conf · C + w_area · A ) ]
+  #
+  #   R = 类别风险基线分（high 0.70 / mid 0.42 / low 0.18）
+  #   C = 检出置信度（0~1）
+  #   A = min(1, sqrt(area / area_ref))，再乘面积项饱和上限 area_cap
+  #
+  # 为什么改成这样（v1 的实测缺陷）：
+  # v1 用 severity = 100·(0.40·R + 0.25·C + 0.35·A)，其中 R 取 1.0/0.65/0.35。
+  # 风险项本身就贡献 14~40 分，直接越过多个等级区间，导致"高危恒判 D、洁净恒判 A"，
+  # B 级几乎没有任何缺陷能落入（实测 6 类缺陷只出现 C 与 D 两档）。
+  #
+  # v2 把风险当作**基线先验**（占 w_risk=0.55 的权重），其余 45% 由"缺陷相对尺度 +
+  # 模型置信度"决定，从而实现"风险定基线、尺度与置信度决定升降级"：
+  #   - 高危小缺陷可落 C（转人工复检），高危大缺陷落 D/E（判废停机）——有梯度；
+  #   - 低危小缺陷落 B（放行并记录），低危大缺陷落 C——不再恒定；
+  #   - 洁净样本无检出，直接判 A。
+  weights: { risk: 0.55, confidence: 0.20, area: 0.25 }
+  risk_score: { high: 0.70, mid: 0.42, low: 0.18 }
+  area_ref: 0.05          # 面积占比归一化参考值
+  area_transform: sqrt    # none | sqrt
+  area_cap: 0.30          # 面积项饱和上限（补偿滑窗框偏大）
+  grades:
+    - { level: "A", zh: "合格",   max: 28,  action: "放行",             color: "#22c55e" }
+    - { level: "B", zh: "轻微",   max: 42,  action: "放行并记录",       color: "#84cc16" }
+    - { level: "C", zh: "一般",   max: 60,  action: "人工复检",         color: "#f59e0b" }
+    - { level: "D", zh: "严重",   max: 80,  action: "判废并停机排查",   color: "#f97316" }
+    - { level: "E", zh: "致命",   max: 100, action: "紧急停机+隔离批次", color: "#ef4444" }
+
+# ----------------------------- 智能体 -----------------------------
+agent:
+  # 三种推理后端，按顺序降级，保证任何环境都能跑通
+  backend_priority: ["rule", "ollama", "openai_compat"]
+  ollama:
+    base_url: "http://127.0.0.1:11434"
+    model: "qwen2.5:3b-instruct"
+    timeout: 60
+    enabled: false
+  openai_compat:
+    base_url: ""       # 例如 https://api.deepseek.com/v1 或本地 vLLM
+    model: ""
+    api_key: ""
+    timeout: 60
+    enabled: false
+  rag:
+    top_k: 3
+    use_bm25: true
+    use_char_ngram: true
+
+# ----------------------------- Web 服务 -----------------------------
+server:
+  host: "127.0.0.1"
+  port: 8077
+  title: "智检 Agent API"
+  max_upload_mb: 20
+  retain_uploads: true
+
+# ----------------------------- 报告 -----------------------------
+report:
+  factory_name: "示范精密制造有限公司"
+  workshop: "热轧车间 · 2号精轧线"
+  inspector: "智能质检终端 QC-02"
+  standard: "GB/T 32738-2016 / Q/FZ 021-2024 表面质量内控标准"

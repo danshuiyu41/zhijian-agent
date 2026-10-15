@@ -1,0 +1,32 @@
+{
+  "//": "VSCode 工作区配置。关键点：本机 `python` 命令指向 Windows 商店占位符（会立即退出），",
+  "//2": "必须显式指定真实解释器 D:\\python\\python.exe，否则任何脚本都跑不起来。",
+
+  "python.defaultInterpreterPath": "D:\\python\\python.exe",
+  "python.terminal.activateEnvironment": false,
+
+  "//3": "打开工作区时自动启用终端环境变量：模型权重缓存重定向到项目内，避免主目录不可写。",
+  "terminal.integrated.env.windows": {
+    "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache",
+    "PYTHONIOENCODING": "utf-8",
+    "PYTHONUTF8": "1"
+  },
+
+  "//4": "所有脚本都以项目根目录为工作目录运行（代码里用相对路径 data/ runs/ models/）。",
+  "python.analysis.extraPaths": ["${workspaceFolder}"],
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+
+  "//5": "排除大文件目录，避免 VSCode 索引卡顿。",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "runs/edgeprofile": true
+  },
+  "search.exclude": {
+    "data/raw": true,
+    "data/stress": true,
+    "models/torch_cache": true,
+    "runs": true
+  }
+}

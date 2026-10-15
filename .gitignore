@@ -1,0 +1,62 @@
+# =============================================================
+# 智检 Agent · Git 忽略规则
+# -------------------------------------------------------------
+# 原则：**代码与文档全部入库；数据与权重不入库**。
+# 理由：数据集可由一条命令重新生成（体积 47MB+），模型权重可由训练复现，
+#       把它们放进 Git 会让仓库臃肿且 clone 极慢。
+# 复现方式见 README「快速开始」。
+# =============================================================
+
+# ---------- 数据集（可重新生成） ----------
+data/raw/
+data/stress/
+data/processed/
+data/real/
+# 自定义数据目录保留占位说明文件，但不含实际图片
+data/custom/*
+!data/custom/.gitkeep
+
+# ---------- 模型权重与缓存（可重新训练/下载） ----------
+models/*.pt
+models/*.onnx
+models/*.npz
+models/torch_cache/
+
+# ---------- 运行产物（每次运行都会变） ----------
+runs/edgeprofile/
+runs/shots/
+runs/logs/
+runs/pdf/*.html
+runs/selftest/
+runs/_*.json
+data/raw/_*.txt
+data/raw/_*.json
+
+# ---------- 数据库与用户上传 ----------
+data/app.db
+data/app.db-*
+data/samples/uploads/*
+!data/samples/uploads/.gitkeep
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------- 编辑器与系统 ----------
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 表格中间产物 ----------
+docs/pdf/*.html
+~$*.doc
+~$*.docx

@@ -1,0 +1,82 @@
+{
+  "//": "VSCode 调试配置。按 F5 即可运行，无需记命令。",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "① 启动 Web 服务（最常用）",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/start.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": {
+        "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache",
+        "PYTHONUTF8": "1"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "② 一键构建（数据→训练→指标）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.pipeline",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache", "PYTHONUTF8": "1" }
+    },
+    {
+      "name": "③ 生成合成数据集",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.data_generate",
+      "args": ["--per-class", "200", "--stress"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "PYTHONUTF8": "1" }
+    },
+    {
+      "name": "④ 训练模型",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.train",
+      "args": ["--epochs", "18", "--batch-size", "32"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache", "PYTHONUTF8": "1" }
+    },
+    {
+      "name": "⑤ 端到端自检",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.selftest_e2e",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache", "PYTHONUTF8": "1" }
+    },
+    {
+      "name": "⑥ 接口测试（需服务已启动）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.test_api",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "TORCH_HOME": "${workspaceFolder}\\models\\torch_cache", "PYTHONUTF8": "1" }
+    },
+    {
+      "name": "⑦ 全部校验",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/check_all.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "D:\\python\\python.exe",
+      "env": { "PYTHONUTF8": "1" }
+    }
+  ]
+}

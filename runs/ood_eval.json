@@ -1,0 +1,121 @@
+{
+ "known_samples": 70,
+ "unknown_samples": 60,
+ "calibrated_threshold": 0.6438,
+ "calibrated_known_pass_rate": 1.0,
+ "calibrated_unknown_reject_rate": 0.25,
+ "recommended_threshold": 0.5155,
+ "recommended_known_pass_rate": 0.9714,
+ "recommended_unknown_reject_rate": 0.4833,
+ "known_dist_mean": 0.3276,
+ "unknown_dist_mean": 0.5228,
+ "separation": 1.6,
+ "sweep": [
+  {
+   "threshold": 0.1474,
+   "known_pass_rate": 0.0143,
+   "unknown_reject_rate": 1.0
+  },
+  {
+   "threshold": 0.1808,
+   "known_pass_rate": 0.0571,
+   "unknown_reject_rate": 1.0
+  },
+  {
+   "threshold": 0.2143,
+   "known_pass_rate": 0.1429,
+   "unknown_reject_rate": 1.0
+  },
+  {
+   "threshold": 0.2478,
+   "known_pass_rate": 0.2,
+   "unknown_reject_rate": 1.0
+  },
+  {
+   "threshold": 0.2812,
+   "known_pass_rate": 0.2857,
+   "unknown_reject_rate": 0.9833
+  },
+  {
+   "threshold": 0.3147,
+   "known_pass_rate": 0.4571,
+   "unknown_reject_rate": 0.9167
+  },
+  {
+   "threshold": 0.3482,
+   "known_pass_rate": 0.5857,
+   "unknown_reject_rate": 0.8333
+  },
+  {
+   "threshold": 0.3816,
+   "known_pass_rate": 0.7571,
+   "unknown_reject_rate": 0.7333
+  },
+  {
+   "threshold": 0.4151,
+   "known_pass_rate": 0.8571,
+   "unknown_reject_rate": 0.6667
+  },
+  {
+   "threshold": 0.4486,
+   "known_pass_rate": 0.9,
+   "unknown_reject_rate": 0.6167
+  },
+  {
+   "threshold": 0.482,
+   "known_pass_rate": 0.9429,
+   "unknown_reject_rate": 0.5667
+  },
+  {
+   "threshold": 0.5155,
+   "known_pass_rate": 0.9714,
+   "unknown_reject_rate": 0.4833
+  },
+  {
+   "threshold": 0.549,
+   "known_pass_rate": 0.9857,
+   "unknown_reject_rate": 0.45
+  },
+  {
+   "threshold": 0.5824,
+   "known_pass_rate": 0.9857,
+   "unknown_reject_rate": 0.4
+  },
+  {
+   "threshold": 0.6159,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.3
+  },
+  {
+   "threshold": 0.6494,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.25
+  },
+  {
+   "threshold": 0.6828,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.1667
+  },
+  {
+   "threshold": 0.7163,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.1333
+  },
+  {
+   "threshold": 0.7498,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.0667
+  },
+  {
+   "threshold": 0.7832,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.05
+  },
+  {
+   "threshold": 0.8167,
+   "known_pass_rate": 1.0,
+   "unknown_reject_rate": 0.0
+  }
+ ],
+ "generated_at": "2026-10-14 18:30:48"
+}

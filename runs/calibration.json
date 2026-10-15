@@ -1,0 +1,221 @@
+{
+ "method": "Temperature Scaling (Guo et al., ICML 2017)",
+ "fitted_on": "验证集（不接触测试集，避免信息泄漏）",
+ "temperature": 1.0,
+ "fit": {
+  "best_nll": 0.00231,
+  "nll_at_T1": 0.055035,
+  "direction": "欠自信（T<1 使分布更尖锐）",
+  "hit_grid_edge": true,
+  "edge_warning": "最优温度撞到下限 0.5（验证集准确率为 1.0 时 NLL 偏好极端 T），已由 t_min 约束保证置信度仍有区分度",
+  "grid": {
+   "min": 0.5,
+   "max": 30.000000000000025,
+   "step": 0.010000000000000009,
+   "t_min_constraint": 0.5
+  },
+  "rejected": true,
+  "reject_reason": "校准后置信度标准差 0.01193 低于校准前 0.04989 的 25%，区分度不足"
+ },
+ "spread": {
+  "before_std": 0.04989,
+  "after_std": 0.04989,
+  "spread_ok": false
+ },
+ "before": {
+  "ece": 0.05207,
+  "mean_confidence": 0.9479,
+  "accuracy": 1.0,
+  "reliability": [
+   {
+    "bin": "0.0-0.1",
+    "lo": 0.0,
+    "hi": 0.1,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.1-0.2",
+    "lo": 0.1,
+    "hi": 0.2,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.2-0.3",
+    "lo": 0.2,
+    "hi": 0.3,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.3-0.4",
+    "lo": 0.3,
+    "hi": 0.4,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.4-0.5",
+    "lo": 0.4,
+    "hi": 0.5,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.5-0.6",
+    "lo": 0.5,
+    "hi": 0.6,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.6-0.7",
+    "lo": 0.6,
+    "hi": 0.7,
+    "count": 2,
+    "avg_confidence": 0.6488,
+    "avg_accuracy": 1.0,
+    "gap": 0.3512
+   },
+   {
+    "bin": "0.7-0.8",
+    "lo": 0.7,
+    "hi": 0.8,
+    "count": 1,
+    "avg_confidence": 0.7253,
+    "avg_accuracy": 1.0,
+    "gap": 0.2747
+   },
+   {
+    "bin": "0.8-0.9",
+    "lo": 0.8,
+    "hi": 0.9,
+    "count": 20,
+    "avg_confidence": 0.8666,
+    "avg_accuracy": 1.0,
+    "gap": 0.1334
+   },
+   {
+    "bin": "0.9-1.0",
+    "lo": 0.9,
+    "hi": 1.0,
+    "count": 187,
+    "avg_confidence": 0.961,
+    "avg_accuracy": 1.0,
+    "gap": 0.039
+   }
+  ]
+ },
+ "after": {
+  "ece": 0.05207,
+  "mean_confidence": 0.9479,
+  "accuracy": 1.0,
+  "reliability": [
+   {
+    "bin": "0.0-0.1",
+    "lo": 0.0,
+    "hi": 0.1,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.1-0.2",
+    "lo": 0.1,
+    "hi": 0.2,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.2-0.3",
+    "lo": 0.2,
+    "hi": 0.3,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.3-0.4",
+    "lo": 0.3,
+    "hi": 0.4,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.4-0.5",
+    "lo": 0.4,
+    "hi": 0.5,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.5-0.6",
+    "lo": 0.5,
+    "hi": 0.6,
+    "count": 0,
+    "avg_confidence": null,
+    "avg_accuracy": null,
+    "gap": null
+   },
+   {
+    "bin": "0.6-0.7",
+    "lo": 0.6,
+    "hi": 0.7,
+    "count": 2,
+    "avg_confidence": 0.6488,
+    "avg_accuracy": 1.0,
+    "gap": 0.3512
+   },
+   {
+    "bin": "0.7-0.8",
+    "lo": 0.7,
+    "hi": 0.8,
+    "count": 1,
+    "avg_confidence": 0.7253,
+    "avg_accuracy": 1.0,
+    "gap": 0.2747
+   },
+   {
+    "bin": "0.8-0.9",
+    "lo": 0.8,
+    "hi": 0.9,
+    "count": 20,
+    "avg_confidence": 0.8666,
+    "avg_accuracy": 1.0,
+    "gap": 0.1334
+   },
+   {
+    "bin": "0.9-1.0",
+    "lo": 0.9,
+    "hi": 1.0,
+    "count": 187,
+    "avg_confidence": 0.961,
+    "avg_accuracy": 1.0,
+    "gap": 0.039
+   }
+  ]
+ },
+ "note": "温度缩放不改变 argmax，故准确率与混淆矩阵不变，仅修正置信度的数值含义。另设区分度守门：若校准后置信度标准差下降超过 75% 则放弃校准。",
+ "generated_at": "2026-10-13 21:58:49"
+}

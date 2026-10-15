@@ -1,0 +1,65 @@
+{
+ "task": "鲁棒性评估（受控退化实验）",
+ "model": {
+  "ckpt": "zhijian_best.pt",
+  "backbone": "mobilenetv3_small_100",
+  "params_m": 1.077
+ },
+ "levels": {
+  "L1_normal": {
+   "samples": 210,
+   "defect_samples": 180,
+   "clean_samples": 30,
+   "tp": 180,
+   "fn": 0,
+   "fp": 0,
+   "tn": 30,
+   "detection_rate": 1.0,
+   "miss_rate": 0.0,
+   "overkill_rate": 0.0,
+   "defect_class_accuracy": 0.9944,
+   "avg_ms": 89.6
+  },
+  "L2_small": {
+   "samples": 210,
+   "defect_samples": 180,
+   "clean_samples": 30,
+   "tp": 180,
+   "fn": 0,
+   "fp": 0,
+   "tn": 30,
+   "detection_rate": 1.0,
+   "miss_rate": 0.0,
+   "overkill_rate": 0.0,
+   "defect_class_accuracy": 0.9778,
+   "avg_ms": 87.9
+  },
+  "L3_small_lowcontrast": {
+   "samples": 210,
+   "defect_samples": 180,
+   "clean_samples": 30,
+   "tp": 153,
+   "fn": 27,
+   "fp": 0,
+   "tn": 30,
+   "detection_rate": 0.85,
+   "miss_rate": 0.15,
+   "overkill_rate": 0.0,
+   "defect_class_accuracy": 0.7944,
+   "avg_ms": 88.6
+  }
+ },
+ "level_labels": {
+  "L1_normal": "L1 正常（与训练同分布）",
+  "L2_small": "L2 小尺度（缺陷尺寸约 45%）",
+  "L3_small_lowcontrast": "L3 小尺度+低对比度（对比度约 40%）"
+ },
+ "notes": [
+  "检出率 = 缺陷样本中被判为不合格的比例（1 - 漏检率）。",
+  "漏检率 = 缺陷被判为合格的比例，是产线最关注的指标。",
+  "过杀率 = 洁净样本被判为不合格的比例（误报）。",
+  "分类准确率 = 在正确检出的前提下，缺陷类别判定正确的比例。",
+  "压力集不参与训练，仅用于量化模型在非理想成像条件下的退化。"
+ ],
+ "generated_at": "2026-10-13 18:34:02"
+}

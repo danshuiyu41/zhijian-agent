@@ -1,0 +1,342 @@
+{
+ "task": "工业表面缺陷分类",
+ "backbone": "mobilenetv3_small_100",
+ "num_params_m": 1.077,
+ "device": "cpu",
+ "epochs_run": 0,
+ "best_epoch": 5,
+ "best_val_acc": 1.0,
+ "train_seconds": 0.0,
+ "classes": [
+  "crazing",
+  "inclusion",
+  "patches",
+  "pitted_surface",
+  "rolled_in_scale",
+  "scratches",
+  "clean"
+ ],
+ "class_names_zh": [
+  "龟裂",
+  "夹杂",
+  "斑块",
+  "麻点",
+  "压入氧化铁皮",
+  "划痕",
+  "洁净(合格)"
+ ],
+ "data_counts": {
+  "train": {
+   "crazing": 140,
+   "inclusion": 140,
+   "patches": 140,
+   "pitted_surface": 140,
+   "rolled_in_scale": 140,
+   "scratches": 140,
+   "clean": 140
+  },
+  "val": {
+   "crazing": 30,
+   "inclusion": 30,
+   "patches": 30,
+   "pitted_surface": 30,
+   "rolled_in_scale": 30,
+   "scratches": 30,
+   "clean": 30
+  },
+  "test": {
+   "crazing": 30,
+   "inclusion": 30,
+   "patches": 30,
+   "pitted_surface": 30,
+   "rolled_in_scale": 30,
+   "scratches": 30,
+   "clean": 30
+  }
+ },
+ "data_sources": {
+  "synthetic:crazing": 200,
+  "synthetic:inclusion": 200,
+  "synthetic:patches": 200,
+  "synthetic:pitted_surface": 200,
+  "synthetic:rolled_in_scale": 200,
+  "synthetic:scratches": 200,
+  "synthetic:clean": 200
+ },
+ "val": {
+  "accuracy": 1.0,
+  "top2_accuracy": 1.0,
+  "macro_precision": 1.0,
+  "macro_recall": 1.0,
+  "macro_f1": 1.0,
+  "weighted_f1": 1.0,
+  "ece": 0.0521,
+  "per_class": [
+   {
+    "index": 0,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "龟裂"
+   },
+   {
+    "index": 1,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "夹杂"
+   },
+   {
+    "index": 2,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "斑块"
+   },
+   {
+    "index": 3,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "麻点"
+   },
+   {
+    "index": 4,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "压入氧化铁皮"
+   },
+   {
+    "index": 5,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "划痕"
+   },
+   {
+    "index": 6,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "洁净(合格)"
+   }
+  ],
+  "confusion_matrix": [
+   [
+    30,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    30,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    30,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    30,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    30,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    30,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    30
+   ]
+  ],
+  "samples": 210,
+  "infer_ms_per_image": 9.28
+ },
+ "test": {
+  "accuracy": 1.0,
+  "top2_accuracy": 1.0,
+  "macro_precision": 1.0,
+  "macro_recall": 1.0,
+  "macro_f1": 1.0,
+  "weighted_f1": 1.0,
+  "ece": 0.0497,
+  "per_class": [
+   {
+    "index": 0,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "龟裂"
+   },
+   {
+    "index": 1,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "夹杂"
+   },
+   {
+    "index": 2,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "斑块"
+   },
+   {
+    "index": 3,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "麻点"
+   },
+   {
+    "index": 4,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "压入氧化铁皮"
+   },
+   {
+    "index": 5,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "划痕"
+   },
+   {
+    "index": 6,
+    "support": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "name": "洁净(合格)"
+   }
+  ],
+  "confusion_matrix": [
+   [
+    30,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    30,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    30,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    30,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    30,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    30,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    30
+   ]
+  ],
+  "samples": 210,
+  "infer_ms_per_image": 9.92
+ },
+ "history": {
+  "train_loss": [],
+  "val_loss": [],
+  "train_acc": [],
+  "val_acc": [],
+  "lr": []
+ },
+ "generated_at": "2026-10-13 18:32:59"
+}
