@@ -60,3 +60,4 @@ desktop.ini
 docs/pdf/*.html
 ~$*.doc
 ~$*.docx
+dist/

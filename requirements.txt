@@ -1,0 +1,39 @@
+# =============================================================
+# 智检 Agent · 依赖清单
+# -------------------------------------------------------------
+# 版本基于实际开发环境（Windows 11 + Python 3.10.10）冻结，
+# 已在 CPU 环境下完整跑通「生成数据 → 训练 → 开集拟合 → 启动服务」全链路。
+#
+# 安装（CPU 版 PyTorch，体积小、无显卡也能跑）：
+#   pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+#
+# 说明：torch / torchvision 必须用 CPU 索引安装，否则会拉取 2GB+ 的 CUDA 版本。
+# =============================================================
+
+# ---------- 深度学习 ----------
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+
+# ---------- 数值与图像 ----------
+numpy==1.23.4
+opencv-python==4.8.1.78
+Pillow==12.2.0
+
+# ---------- Web 服务 ----------
+fastapi==0.104.1
+uvicorn==0.49.0
+python-multipart==0.0.32
+pydantic==2.5.0
+starlette==0.27.0
+
+# ---------- 配置与工具 ----------
+PyYAML==6.0.3
+requests==2.34.2
+
+# ---------- 可视化（训练曲线、混淆矩阵、热力图） ----------
+matplotlib==3.10.9
+
+# ---------- 文档导出（Markdown → PDF） ----------
+markdown==3.10.2
+pypdf==6.20.0
