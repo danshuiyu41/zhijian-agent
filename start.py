@@ -60,14 +60,13 @@ def check() -> bool:
     if n_imgs > 0:
         print(f"  [OK]   数据集：{len(classes)} 个类别目录，共 {n_imgs} 张图像")
     else:
-        print("  [缺失] 数据集为空，请运行：python -m src.data_generate --per-class 200")
-        ok = False
+        print("  [跳过] 数据集为空 —— 检测推理不需要数据集，可直接使用；"
+              "如需重新训练：python -m src.data_generate --per-class 200")
 
     # 3) 索引
     idx = ROOT / "runs" / "dataset_index.json"
-    print(f"  [{'OK' if idx.exists() else '缺失'}]   数据索引 runs/dataset_index.json"
-          + ("" if idx.exists() else "（运行 python -m src.data）"))
-    ok = ok and idx.exists()
+    print(f"  [{'OK' if idx.exists() else '跳过'}]   数据索引 runs/dataset_index.json"
+          + ("" if idx.exists() else "（仅训练/标定时需要，运行 python -m src.data 生成）"))
 
     # 4) 模型
     ckpt = ROOT / "models" / "zhijian_best.pt"

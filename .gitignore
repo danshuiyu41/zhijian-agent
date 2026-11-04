@@ -61,3 +61,6 @@ docs/pdf/*.html
 ~$*.doc
 ~$*.docx
 dist/
+
+# 与本作品无关的本地杂物，不入库
+NeteaseCloudMusicFlac/

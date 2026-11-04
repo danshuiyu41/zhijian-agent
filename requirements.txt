@@ -4,11 +4,11 @@
 # 版本基于实际开发环境（Windows 11 + Python 3.10.10）冻结，
 # 已在 CPU 环境下完整跑通「生成数据 → 训练 → 开集拟合 → 启动服务」全链路。
 #
-# 安装（CPU 版 PyTorch，体积小、无显卡也能跑）：
-#   pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cpu
-#   pip install -r requirements.txt
+# 安装（一条命令，同时从 PyPI 与 PyTorch CPU 源解析，
+#       从而装上 +cpu 版 torch —— 比默认 CUDA 版小约 10 倍）：
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 #
-# 说明：torch / torchvision 必须用 CPU 索引安装，否则会拉取 2GB+ 的 CUDA 版本。
+# 说明：torch / torchvision 必须带 +cpu 后缀安装，否则会拉取 2GB+ 的 CUDA 版本。
 # =============================================================
 
 # ---------- 深度学习 ----------

@@ -38,6 +38,8 @@ INCLUDE_FILES = [
     "start.py",
     "check_all.py",
     "deploy.sh",
+    "deploy_fast.sh",
+    "deploy_win.ps1",
     "README.md",
     "requirements.txt",
     ".gitignore",
