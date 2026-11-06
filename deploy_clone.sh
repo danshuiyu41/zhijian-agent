@@ -82,11 +82,25 @@ fi
 
 # ---------------------------------------------------------------- 1. 系统依赖
 blue "[1/5] 安装系统依赖"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-# libgl1 / libglib2.0-0 是 opencv 的运行时依赖；libgomp1 是 torch 的
-apt-get install -y -qq python3 python3-venv python3-pip curl \
-        libgl1 libglib2.0-0 libgomp1 >/dev/null
+if [[ -f /etc/os-release ]]; then
+  . /etc/os-release
+  echo "  系统：${PRETTY_NAME:-未知}"
+fi
+
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  # libgl1 / libglib2.0-0 是 opencv 的运行时依赖；libgomp1 是 torch 的
+  apt-get install -y -qq python3 python3-venv python3-pip curl \
+          libgl1 libglib2.0-0 libgomp1 >/dev/null
+elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
+  YUM=$(command -v dnf || command -v yum)
+  $YUM install -y -q python3 python3-pip curl mesa-libGL glib2 libgomp \
+                   openssl-devel >/dev/null 2>&1 || \
+  $YUM install -y -q python3 python3-pip curl >/dev/null
+else
+  die "既没有 apt-get 也没有 yum/dnf，无法自动装依赖"
+fi
 python3 -V
 
 MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
@@ -182,7 +196,16 @@ if command -v ufw >/dev/null 2>&1; then
   ufw allow "${PORT}/tcp" >/dev/null 2>&1 || true
   echo "  ufw 已放行"
 fi
-warn "  别忘了云控制台【安全组】放行 TCP $PORT，否则外网访问不到"
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+  firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || true
+  firewall-cmd --reload >/dev/null 2>&1 || true
+  echo "  firewalld 已放行"
+fi
+# 宝塔面板自带一层防火墙插件，装了的话也放行
+if [[ -x /www/server/panel/pyenv/bin/python ]]; then
+  warn "  检测到宝塔面板：请到宝塔后台「安全」页把 $PORT 端口放行"
+fi
+warn "  别忘了云控制台【防火墙/安全组】放行 TCP $PORT，否则外网访问不到"
 
 PUBLIC_IP=$(curl -fsS --max-time 6 https://api.ipify.org 2>/dev/null \
             || curl -fsS --max-time 6 https://ipinfo.io/ip 2>/dev/null \
